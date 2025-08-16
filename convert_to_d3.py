@@ -5,8 +5,8 @@ Knowledge Graph to D3.js Converter
 This script converts a knowledge graph JSON file with entities and relations
 into a D3.js-compatible graph object format.
 
-Author: Generated for gpxmapper project
-Date: 2025-01-14
+Author: Zoltan Fabian
+Date: 2025-08-15
 """
 
 import re
