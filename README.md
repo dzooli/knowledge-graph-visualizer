@@ -2,10 +2,14 @@
 
 ## Overview
 
+![A knowledge graph visualization interface showing interconnected nodes and edges in a force-directed layout. The left sidebar contains controls for customizing the graph, and the top navbar displays badges for node count, link count, type count, and placeholder count. The environment is clean and modern, with a focus on usability. Visible text includes labels for nodes, sidebar headings, and navbar badge descriptions.](./screenshot.png)
+
+### Goals
+
 This application visualizes a knowledge graph using D3.js and Bootstrap 5 in a single HTML and a CSS file.
 
-Usable for visualizing an MCP-memory knowledge graph used during Github Copilot or Claude Desktop assisted
-development and research work.
+Usable for visualizing an MCP/server-memory knowledge graph used during Github Copilot or Claude Desktop assisted
+development and research works.
 
 Users can interact with nodes and edges through features like:
 * Node dragging
@@ -15,8 +19,6 @@ Users can interact with nodes and edges through features like:
 * Entity type legend
 
 A collapsible left sidebar provides controls for customizing the graph's appearance and behavior.
-
-![A knowledge graph visualization interface showing interconnected nodes and edges in a force-directed layout. The left sidebar contains controls for customizing the graph, and the top navbar displays badges for node count, link count, type count, and placeholder count. The environment is clean and modern, with a focus on usability. Visible text includes labels for nodes, sidebar headings, and navbar badge descriptions.](./screenshot.png)
 
 ## Features
 
@@ -50,9 +52,9 @@ A collapsible left sidebar provides controls for customizing the graph's appeara
 
 ## Usage
 
-1. You need to get the knowledge graph memory into a JSON file. Example script ```read_graph.sh``` is compatible with ```@modelcontextprotocol/server-memory``` reference implementation. It calls the MCP via stdio to use the __read_graph__ tool.
+1. You need to get the knowledge graph memory into a JSON file. Example script ```read_graph.sh``` is compatible with ```@modelcontextprotocol/server-memory``` reference implementation. It calls the MCP thorough stdio to use the __read_graph__ tool.
 2. Then by ```convert_to_d3.py``` you could create the D3.js compatible graph into ```d3_graph.json```. Use ```--no-validate``` to skip node consistency validation.
-3. Finally start the server via ```start.bat``` or ```python -m http.server -b 127.0.0.1 8080``` and 
+3. Finally start the server via ```start.bat``` or with ```python -m http.server -b 127.0.0.1 8080``` and 
 4. Open __http://127.0.0.1:8080/knowledge_graph.html__ in your browser.
 
 ## Contribution

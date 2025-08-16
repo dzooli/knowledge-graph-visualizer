@@ -2,3 +2,7 @@
 .idea
 __pycache__/
 *.py[cod]
+
+*.json
+
+knowledge_graph_*.html
