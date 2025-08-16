@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Knowledge Graph Visualization</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" />
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <nav class="navbar navbar-dark">
+        <div class="container-fluid">
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-light" id="btn-toggle-left" title="Toggle left sidebar">☰</button>
+            <span class="navbar-brand mb-0 h1">Knowledge Graph</span>
+          </div>
+          <div class="d-flex align-items-center gap-3 small text-secondary">
+            <span id="status-text" class="small-muted">Initializing…</span>
+            <span class="badge text-bg-primary" id="stat-nodes">0 nodes</span>
+            <span class="badge text-bg-secondary" id="stat-links">0 links</span>
+            <span class="badge text-bg-dark" id="stat-types">0 types</span>
+            <span class="badge text-bg-warning" id="stat-placeholders">0 placeholders</span>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="app-main">
+      <aside class="sidebar left-sidebar" aria-label="Controls and settings">
+        <div id="error-panel" class="card mb-3 hidden">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Data load problem</strong>
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-sm btn-outline-warning" id="btn-load-sample" title="Load built-in sample data">Load sample</button>
+              <button class="btn btn-sm btn-outline-danger" id="btn-retry">Retry</button>
+              <button type="button" class="btn-close btn-close-white" aria-label="Close" id="btn-close-error"></button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="error-message" class="mb-2"></div>
+            <ul class="mb-0 small">
+              <li>Ensure d3_graph.json is in the same folder as this HTML file.</li>
+              <li>Serve via a local server, e.g. Python: <code>python -m http.server</code>.</li>
+              <li>Validate JSON structure: { nodes: [...], links: [...] }.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="accordion mb-3" id="global-forces">
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="heading-global">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-global" aria-expanded="false" aria-controls="collapse-global">
+                Global forces
+              </button>
+            </h2>
+            <div id="collapse-global" class="accordion-collapse collapse" aria-labelledby="heading-global">
+              <div class="accordion-body">
+                <div class="mb-2">
+                  <label class="form-label" for="link-distance">Link distance <span class="small-muted" id="val-link-distance"></span></label>
+                  <input type="range" min="10" max="400" step="1" class="form-range" id="link-distance" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label" for="link-strength">Link strength <span class="small-muted" id="val-link-strength"></span></label>
+                  <input type="range" min="0" max="2" step="0.01" class="form-range" id="link-strength" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label" for="charge-strength">Charge strength <span class="small-muted" id="val-charge-strength"></span></label>
+                  <input type="range" min="-2000" max="0" step="10" class="form-range" id="charge-strength" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label" for="collide-radius">Collide radius <span class="small-muted" id="val-collide-radius"></span></label>
+                  <input type="range" min="0" max="50" step="1" class="form-range" id="collide-radius" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label" for="center-strength">Center strength <span class="small-muted" id="val-center-strength"></span></label>
+                  <input type="range" min="0" max="1" step="0.01" class="form-range" id="center-strength" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label" for="velocity-decay">Velocity decay <span class="small-muted" id="val-velocity-decay"></span></label>
+                  <input type="range" min="0.1" max="0.9" step="0.01" class="form-range" id="velocity-decay" />
+                </div>
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="auto-tune" checked>
+                  <label class="form-check-label" for="auto-tune">Auto-tune for large graphs</label>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-sm btn-outline-primary" id="btn-restart">Restart simulation</button>
+                  <button class="btn btn-sm btn-outline-secondary" id="btn-center">Re-center</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Labels</span>
+            <div class="form-check form-switch m-0">
+              <input class="form-check-input" type="checkbox" id="toggle-labels" checked>
+              <label class="form-check-label" for="toggle-labels">Show</label>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="auto-hide-labels" checked>
+              <label class="form-check-label" for="auto-hide-labels">Auto-hide when nodes > 1000</label>
+            </div>
+            <div>
+              <label class="form-label" for="label-size">Label size <span class="small-muted" id="val-label-size"></span></label>
+              <input type="range" min="8" max="20" step="1" class="form-range" id="label-size" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <span>Entity types</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="accordion" id="types-parent-accordion">
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="types-parent-heading">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#types-parent-collapse" aria-expanded="false" aria-controls="types-parent-collapse">
+                    Type-wise forces and visibility
+                  </button>
+                </h2>
+                <div id="types-parent-collapse" class="accordion-collapse collapse" aria-labelledby="types-parent-heading">
+                  <div class="accordion-body">
+                    <div class="d-flex justify-content-end mb-2">
+                      <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-light" id="btn-expand-types">Expand all</button>
+                        <button class="btn btn-outline-light" id="btn-collapse-types">Collapse all</button>
+                      </div>
+                    </div>
+                    <div class="accordion" id="types-accordion"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header">Help & Troubleshooting</div>
+          <div class="card-body small">
+            <ul class="mb-2">
+              <li>Use mouse wheel to zoom; drag background to pan.</li>
+              <li>Drag nodes to reposition; double-click a node to toggle pin.</li>
+              <li>Click a type's eye to hide/show that type; use sliders to tune.</li>
+            </ul>
+            <div class="small-muted">If nothing appears: check the console and the error panel above for JSON issues.</div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="graph-container">
+        <div id="node-tooltip" aria-hidden="true"></div>
+        <svg id="graph-svg" aria-label="Knowledge graph visualization"></svg>
+      </section>
+
+      <aside class="sidebar right-sidebar" aria-label="Legend">
+        <div class="card mb-3">
+          <div class="card-header">Legend</div>
+          <div class="card-body">
+            <div id="legend" class="legend"></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Toast container for transient notices/warnings -->
+  <div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="app-toast" class="toast" aria-live="polite" aria-atomic="true" data-bs-delay="6000">
+      <div class="toast-header">
+        <span class="rounded me-2" id="toast-swatch" style="width:10px;height:10px;background:#6ea8fe"></span>
+        <strong class="me-auto" id="toast-title">Notice</strong>
+        <small class="text-muted">now</small>
+        <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+      <div class="toast-body" id="toast-body">Message</div>
+    </div>
+  </div>
+
+  <!-- Inline sample dataset as a safe fallback for file:// or network blocks -->
+  <script id="sample-graph" type="application/json">{
+    "nodes": [
+      { "id": "A", "name": "Alice", "type": "Person", "description": "Researcher" },
+      { "id": "B", "name": "Bob", "type": "Person", "description": "Engineer" },
+      { "id": "C", "name": "Company X", "type": "Organization" },
+      { "id": "D", "name": "Paper 123", "type": "Publication" },
+      { "id": "E", "name": "City Y", "type": "Location" },
+      { "id": "F", "name": "Dataset Z", "type": "Resource" }
+    ],
+    "links": [
+      { "source": "A", "target": "B", "relation": "colleague" },
+      { "source": "A", "target": "D", "relation": "author" },
+      { "source": "B", "target": "D", "relation": "author" },
+      { "source": "D", "target": "F", "relation": "uses" },
+      { "source": "A", "target": "C", "relation": "affiliated" },
+      { "source": "C", "target": "E", "relation": "located_in" }
+    ]
+  }</script>
+
+  <!-- Load libraries before app script to ensure globals exist -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // State
+    const state = {
+      data: { nodes: [], links: [] },
+      types: [],
+      typeSettings: new Map(), // type -> { visible, size, chargeMul }
+      color: null,
+      sim: null,
+      svg: null,
+      g: null,
+      nodesSel: null,
+      placeholderSel: null,
+      linksSel: null,
+      labelsSel: null,
+      linkLabelsSel: null,
+      zoom: null,
+      zoomTransform: d3.zoomIdentity,
+      resizeHooked: false,
+      // Degree stats for sizing
+      degreeById: new Map(),
+      degreeMin: 0,
+      degreeMax: 0,
+      settings: {
+        linkDistance: 80,
+        linkStrength: 0.6,
+        chargeStrength: -400,
+        collideRadius: 8,
+        centerStrength: 0.1,
+        velocityDecay: 0.3,
+        showLabels: true,
+        autoHideLabels: true,
+        labelSize: 12,
+        autoTune: true
+      }
+    };
+
+    // DOM elements
+    const el = {
+      statusText: () => document.getElementById('status-text'),
+      errorPanel: () => document.getElementById('error-panel'),
+      retry: () => document.getElementById('btn-retry'),
+      btnLoadSample: () => document.getElementById('btn-load-sample'),
+      btnCloseError: () => document.getElementById('btn-close-error'),
+      btnRestart: () => document.getElementById('btn-restart'),
+      btnCenter: () => document.getElementById('btn-center'),
+      linkDistance: () => document.getElementById('link-distance'),
+      linkStrength: () => document.getElementById('link-strength'),
+      chargeStrength: () => document.getElementById('charge-strength'),
+      collideRadius: () => document.getElementById('collide-radius'),
+      centerStrength: () => document.getElementById('center-strength'),
+      velocityDecay: () => document.getElementById('velocity-decay'),
+      valLinkDistance: () => document.getElementById('val-link-distance'),
+      valLinkStrength: () => document.getElementById('val-link-strength'),
+      valChargeStrength: () => document.getElementById('val-charge-strength'),
+      valCollideRadius: () => document.getElementById('val-collide-radius'),
+      valCenterStrength: () => document.getElementById('val-center-strength'),
+      valVelocityDecay: () => document.getElementById('val-velocity-decay'),
+      toggleLabels: () => document.getElementById('toggle-labels'),
+      autoHideLabels: () => document.getElementById('auto-hide-labels'),
+      labelSize: () => document.getElementById('label-size'),
+      valLabelSize: () => document.getElementById('val-label-size'),
+      autoTune: () => document.getElementById('auto-tune'),
+      statNodes: () => document.getElementById('stat-nodes'),
+      statLinks: () => document.getElementById('stat-links'),
+      statTypes: () => document.getElementById('stat-types'),
+      statPlaceholders: () => document.getElementById('stat-placeholders'),
+      legend: () => document.getElementById('legend'),
+      tooltip: () => document.getElementById('node-tooltip'),
+      typesAccordion: () => document.getElementById('types-accordion'),
+      btnExpandTypes: () => document.getElementById('btn-expand-types'),
+      btnCollapseTypes: () => document.getElementById('btn-collapse-types'),
+      svg: () => document.getElementById('graph-svg'),
+      btnToggleLeft: () => document.getElementById('btn-toggle-left')
+    };
+
+    // Utility
+    function setText(node, text) { if (node) node.textContent = String(text); }
+    function hide(elm) { if (elm) elm.classList.add('hidden'); }
+
+    function sizedOrdinal(colors, k) {
+      if (colors.length >= k) return d3.scaleOrdinal(colors).unknown('#aaa');
+      // Use rainbow if too many categories
+      return d3.scaleOrdinal(d3.range(k).map(i => d3.interpolateRainbow(i/(k||1)))).unknown('#aaa');
+    }
+
+    function withTimeout(promiseFactory, ms) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort('Timeout'), ms);
+      return Promise.race([
+        promiseFactory(ctrl.signal),
+        new Promise((_, rej) => ctrl.signal.addEventListener('abort', () => rej(new Error('Request timed out after '+ms+'ms'))))
+      ]).finally(() => clearTimeout(t));
+    }
+
+    // Data validation (refactored)
+    function normalizeNodes(rawNodes, issues) {
+      const nodes = Array.isArray(rawNodes) ? rawNodes : [];
+      if (!Array.isArray(rawNodes)) issues.push('"nodes" missing or not an array; using empty list');
+      const byId = new Map();
+      const norm = nodes.map((n, idx) => {
+        const id = (n && (n.id ?? n.name ?? String(idx)));
+        if (id == null) issues.push(`Node at index ${idx} has no id/name; assigned ${idx}`);
+        const type = n && (n.type ?? n.group ?? 'Unknown');
+        const name = n && (n.name ?? String(id));
+        const nn = { ...n, id, type, name };
+        byId.set(id, nn);
+        return nn;
+      });
+      return { normNodes: norm, byId };
+    }
+
+    function normalizeLinks(rawLinks, issues) {
+      const links = Array.isArray(rawLinks) ? rawLinks : [];
+      if (!Array.isArray(rawLinks)) issues.push('"links" missing or not an array; using empty list');
+      return links.map((l, idx) => {
+        let s = l && (l.source?.id ?? l.source ?? l.src ?? l.from);
+        let t = l && (l.target?.id ?? l.target ?? l.dst ?? l.to);
+        if (s == null || t == null) {
+          issues.push(`Link at index ${idx} missing source/target; dropped`);
+          return null;
+        }
+        return { ...l, source: s, target: t };
+      }).filter(Boolean);
+    }
+
+    function ensurePlaceholderNodes(nodes, links, byId, issues) {
+      const ensureNode = (id) => {
+        if (byId.has(id)) return byId.get(id);
+        const placeholder = {
+          id,
+          name: String(id),
+          type: 'Placeholder',
+          placeholder: true,
+          note: 'Referenced by relation but missing from data.'
+        };
+        nodes.push(placeholder);
+        byId.set(id, placeholder);
+        issues.push(`Created placeholder node for missing id "${id}"`);
+        return placeholder;
+      };
+      for (const l of links) { ensureNode(l.source); ensureNode(l.target); }
+    }
+
+    function validateGraphData(raw) {
+      const issues = [];
+      if (!raw || typeof raw !== 'object') throw new Error('Root is not an object');
+      const { normNodes, byId } = normalizeNodes(raw.nodes, issues);
+      const normLinks = normalizeLinks(raw.links, issues);
+      ensurePlaceholderNodes(normNodes, normLinks, byId, issues);
+      return { nodes: normNodes, links: normLinks, issues };
+    }
+
+    // Add back: stats and type settings helpers
+    function updateStats() {
+      const n = state.data.nodes.length, m = state.data.links.length, t = state.types.length;
+      const p = state.data.nodes.filter(nd => nd && nd.placeholder).length;
+      setText(el.statNodes(), `${n} nodes`);
+      setText(el.statLinks(), `${m} links`);
+      setText(el.statTypes(), `${t} types`);
+      setText(el.statPlaceholders(), `${p} placeholders`);
+    }
+
+    function buildTypesAndSettings() {
+      const types = Array.from(new Set(state.data.nodes.map(n => n.type))).sort();
+      state.types = types;
+      const n = state.data.nodes.length;
+      const baseSize = n > 2000 ? 3 : n > 1000 ? 4 : n > 500 ? 5 : 6;
+      state.typeSettings.clear();
+      types.forEach(t => state.typeSettings.set(t, { visible: true, size: baseSize, chargeMul: 1 }));
+      state.color = sizedOrdinal(d3.schemeTableau10, types.length).domain(types);
+    }
+
+    // Ensure auto-tune helper exists
+    function autoTuneIfNeeded() {
+      applyAutoTune();
+      syncControlsToSettings();
+    }
+
+    // UI builders
+    function buildLegend() {
+      const container = el.legend();
+      container.innerHTML = '';
+      for (const t of state.types) {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        const sw = document.createElement('span');
+        sw.className = 'legend-swatch';
+        sw.style.backgroundColor = state.color(t);
+        const label = document.createElement('span');
+        label.textContent = t;
+        item.appendChild(sw); item.appendChild(label);
+        container.appendChild(item);
+      }
+    }
+
+    function buildTypeAccordions() {
+      const acc = el.typesAccordion();
+      acc.innerHTML = '';
+      state.types.forEach((t, idx) => {
+        const id = 'type-' + idx;
+        const item = document.createElement('div');
+        item.className = 'accordion-item';
+        item.innerHTML = `
+          <h2 class="accordion-header" id="h-${id}">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c-${id}" aria-expanded="false" aria-controls="c-${id}">
+              <span class="me-2" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${state.color(t)};border:1px solid rgba(255,255,255,.3)"></span>
+              <span class="flex-grow-1">${t}</span>
+              <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" id="vis-${id}" ${state.typeSettings.get(t).visible ? 'checked' : ''}>
+              </div>
+            </button>
+          </h2>
+          <div id="c-${id}" class="accordion-collapse collapse" aria-labelledby="h-${id}" data-bs-parent="#types-accordion">
+            <div class="accordion-body">
+              <div class="mb-2">
+                <label class="form-label" for="size-${id}">Size <span class="small-muted" id="val-size-${id}"></span></label>
+                <input type="range" min="3" max="24" step="1" class="form-range" id="size-${id}" />
+              </div>
+              <div>
+                <label class="form-label" for="chg-${id}">Charge multiplier <span class="small-muted" id="val-chg-${id}"></span></label>
+                <input type="range" min="0.1" max="3" step="0.05" class="form-range" id="chg-${id}" />
+              </div>
+            </div>
+          </div>`;
+        acc.appendChild(item);
+        configureTypeItemControls(item, t, id);
+      });
+    }
+
+    function configureTypeItemControls(item, t, id) {
+      const vis = item.querySelector('#vis-' + id);
+      const size = item.querySelector('#size-' + id);
+      const chg = item.querySelector('#chg-' + id);
+      const vs = item.querySelector('#val-size-' + id);
+      const vc = item.querySelector('#val-chg-' + id);
+      const s = state.typeSettings.get(t);
+      size.value = s.size; chg.value = s.chargeMul; vs.textContent = s.size; vc.textContent = s.chargeMul;
+      vis.addEventListener('change', () => { s.visible = vis.checked; applyVisibility(); });
+      size.addEventListener('input', () => { s.size = +size.value; vs.textContent = s.size; redrawNodeSizes(); updateForces(); });
+      chg.addEventListener('input', () => { s.chargeMul = +chg.value; vc.textContent = s.chargeMul; updateForces(); });
+    }
+
+    function showTooltip(ev, d) {
+      const tt = el.tooltip();
+      tt.innerHTML = buildTooltipHTML(d);
+      tt.style.display = 'block';
+      moveTooltip(ev);
+    }
+
+    function buildTooltipHTML(d) {
+      const title = escapeHtml(d.name ?? d.id);
+      const color = (typeof state.color === 'function') ? state.color(d.type) : '#6ea8fe';
+      const parts = [
+        `<div class="tt-title">`
+        + `<span class="tt-swatch" style="background:${color}"></span>`
+        + `<h6 class="m-0">${title}</h6>`
+        + `<span class="tt-type-badge ms-auto">${escapeHtml(d.type)}</span>`
+        + `</div>`
+      ];
+
+      // Placeholder warning
+      if (d.placeholder) {
+        parts.push('<div class="tt-section-title">Placeholder</div>');
+        parts.push('<div class="tt-row"><span class="key">Note:</span><span>This node was created automatically because it is referenced by a relation but missing from the input data.</span></div>');
+      }
+
+      // Observations as list items
+      if (Array.isArray(d.observations) && d.observations.length) {
+        parts.push('<div class="tt-section-title">Observations</div>');
+        parts.push('<ul class="tt-list">' + d.observations.map(o => `<li>${escapeHtml(String(o))}</li>`).join('') + '</ul>');
+      }
+
+      // Other details (exclude common/internal keys and observations already shown)
+      const exclude = new Set(['id','name','type','x','y','vx','vy','index','fx','fy','observations']);
+      const entries = Object.entries(d).filter(([k,v]) => !exclude.has(k) && v != null);
+      if (entries.length) {
+        parts.push('<div class="tt-section-title">Details</div>');
+        for (const [k, v] of entries) {
+          if (Array.isArray(v) && v.every(x => ['string','number','boolean'].includes(typeof x))) {
+            parts.push(`<div class="tt-row"><span class="key">${escapeHtml(k)}:</span><span>${v.map(x => escapeHtml(String(x))).join(', ')}</span></div>`);
+          } else if (typeof v === 'object') {
+            parts.push(`<div class="tt-row"><span class="key">${escapeHtml(k)}:</span><span>${escapeHtml(JSON.stringify(v))}</span></div>`);
+          } else {
+            parts.push(`<div class="tt-row"><span class="key">${escapeHtml(k)}:</span><span>${escapeHtml(String(v))}</span></div>`);
+          }
+        }
+      }
+      return parts.join('');
+    }
+
+    function moveTooltip(ev) {
+      const tt = el.tooltip();
+      const container = tt.parentElement || document.body;
+      // get pointer coords relative to the positioned container to avoid offset issues
+      const [px, py] = d3.pointer(ev, container);
+      const ox = 12, oy = 12; // small offset so the cursor doesn't sit under the tooltip
+
+      // measure container and tooltip for clamping
+      const rect = container.getBoundingClientRect();
+      const tw = tt.offsetWidth || 0;
+      const th = tt.offsetHeight || 0;
+
+      let x = px + ox;
+      let y = py + oy;
+
+      // if overflowing, flip to the other side of the cursor
+      if (x + tw > rect.width) x = Math.max(0, px - tw - ox);
+      if (y + th > rect.height) y = Math.max(0, py - th - oy);
+
+      // final clamps
+      if (x < 0) x = 0;
+      if (y < 0) y = 0;
+
+      tt.style.left = x + 'px';
+      tt.style.top = y + 'px';
+    }
+    function hideTooltip() { el.tooltip().style.display = 'none'; }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    }
+
+    // Add missing helpers: drag, interactions, visibility, labels, and node size updates
+    function nodeDrag(sim) {
+      // Provide a safe drag behavior even if sim is not yet created
+      function dragstarted(event, d) {
+        if (sim && !event.active) sim.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+      function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+      }
+      function dragended(event, d) {
+        if (sim && !event.active) sim.alphaTarget(0);
+        // Release unless pinned (toggled via double-click)
+        if (!d.pinned) {
+          d.fx = null;
+          d.fy = null;
+        }
+      }
+      return d3.drag()
+        .on('start', dragstarted)
+        .on('drag', dragged)
+        .on('end', dragended);
+    }
+
+    function attachNodeInteractions(selection) {
+      selection
+        .on('mouseover', function (event, d) {
+          // bring the node to front visually
+          d3.select(this).raise();
+          showTooltip(event, d);
+          // Highlight connected edges and their labels
+          highlightConnections(d);
+        })
+        .on('mousemove', function (event) {
+          moveTooltip(event);
+        })
+        .on('mouseout', function () {
+          hideTooltip();
+          // Clear edge highlights
+          clearHighlights();
+        })
+        .on('dblclick', function (event, d) {
+          // Toggle pin
+          d.pinned = !d.pinned;
+          if (d.pinned) {
+            d.fx = d.x;
+            d.fy = d.y;
+          } else {
+            d.fx = null;
+            d.fy = null;
+          }
+          d3.select(this).classed('pinned', !!d.pinned);
+        });
+    }
+
+    // Edge highlighting helpers
+    function highlightConnections(node) {
+      const id = node?.id;
+      if (!id) return;
+      const isConn = (l) => (l?.source?.id === id || l?.target?.id === id);
+      if (state.linksSel) {
+        state.linksSel
+          .classed('connected', d => isConn(d))
+          .classed('dimmed', d => !isConn(d));
+      }
+      if (state.linkLabelsSel) {
+        state.linkLabelsSel
+          .classed('connected', d => isConn(d))
+          .classed('dimmed', d => !isConn(d));
+      }
+    }
+
+    function clearHighlights() {
+      if (state.linksSel) state.linksSel.classed('connected', false).classed('dimmed', false);
+      if (state.linkLabelsSel) state.linkLabelsSel.classed('connected', false).classed('dimmed', false);
+    }
+
+    // Degree-based sizing helpers
+    function computeDegreeStats(nodes, links) {
+      const byId = new Map(nodes.map(n => [n.id, 0]));
+      for (const l of links) {
+        const s = l?.source?.id; const t = l?.target?.id;
+        if (byId.has(s)) byId.set(s, byId.get(s) + 1);
+        if (byId.has(t)) byId.set(t, byId.get(t) + 1);
+      }
+      let min = Infinity, max = -Infinity;
+      byId.forEach((v) => { if (v < min) min = v; if (v > max) max = v; });
+      if (!isFinite(min)) { min = 0; max = 0; }
+      state.degreeById = byId;
+      state.degreeMin = min;
+      state.degreeMax = max;
+    }
+
+    function nodeRadius(d) {
+      // Base type size
+      const base = Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6));
+      // Placeholders keep base size (no degree scaling)
+      if (d.placeholder) return base;
+      const deg = state.degreeById?.get(d.id) ?? 0;
+      const min = state.degreeMin ?? 0;
+      const max = state.degreeMax ?? 0;
+      if (max <= min) return base; // avoid div by zero; uniform size
+      // Linear scale: map [min,max] -> [0.8, 2.0] multiplier
+      const scaleMin = 0.8, scaleMax = 2.0;
+      const t = (deg - min) / (max - min);
+      const k = scaleMin + t * (scaleMax - scaleMin);
+      return base * k;
+    }
+
+    function applyVisibility() {
+      if (state.nodesSel) {
+        state.nodesSel.attr('display', d => (state.typeSettings.get(d.type)?.visible !== false) ? null : 'none');
+      }
+      if (state.placeholderSel) {
+        state.placeholderSel.attr('display', d => (state.typeSettings.get(d.type)?.visible !== false) ? null : 'none');
+      }
+      // Do NOT set label visibility here; updateLabelVisibility handles labels consistently
+      if (state.linksSel) {
+        state.linksSel.attr('display', d => {
+          const sv = state.typeSettings.get(d.source.type)?.visible !== false;
+          const tv = state.typeSettings.get(d.target.type)?.visible !== false;
+          return (sv && tv) ? null : 'none';
+        });
+      }
+      // Ensure label visibility is consistent with global toggles and type visibility
+      updateLabelVisibility();
+
+      // Recompute degree stats using only currently visible links, then refresh sizes and forces
+      if (state.resolvedLinks) {
+        const isTypeVisible = (t) => state.typeSettings.get(t)?.visible !== false;
+        const visibleLinks = state.resolvedLinks.filter(l => isTypeVisible(l.source.type) && isTypeVisible(l.target.type));
+        computeDegreeStats(state.data.nodes, visibleLinks);
+        redrawNodeSizes();
+        updateForces();
+      }
+    }
+
+    function redrawNodeSizes() {
+      if (state.nodesSel) {
+        state.nodesSel.attr('r', d => nodeRadius(d));
+      }
+      if (state.placeholderSel) {
+        state.placeholderSel
+          .attr('width', d => Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)) * 2)
+          .attr('height', d => Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)) * 2)
+          .attr('x', d => d.x - Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)))
+          .attr('y', d => d.y - Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)));
+      }
+    }
+
+    // Label visibility helpers
+    function shouldShowLabels() {
+      const n = state.data.nodes.length;
+      return !!state.settings.showLabels && !(state.settings.autoHideLabels && n > 1000);
+    }
+
+    function updateLabelVisibility() {
+      if (!state.labelsSel && !state.linkLabelsSel) return;
+      const show = shouldShowLabels();
+      if (state.labelsSel) {
+        state.labelsSel
+          .attr('display', d => {
+            const typeVisible = (state.typeSettings.get(d.type)?.visible !== false);
+            return (show && typeVisible) ? null : 'none';
+          })
+          .style('font-size', state.settings.labelSize + 'px');
+      }
+      // Edge labels visibility respects the same show/auto-hide flag and type visibility, but size is unchanged
+      if (state.linkLabelsSel) {
+        state.linkLabelsSel.attr('display', d => {
+          const sv = state.typeSettings.get(d.source.type)?.visible !== false;
+          const tv = state.typeSettings.get(d.target.type)?.visible !== false;
+          return (show && sv && tv) ? null : 'none';
+        });
+      }
+    }
+
+    function initSVG() {
+      const svgSel = d3.select(el.svg());
+      svgSel.selectAll('*').remove();
+      const width = svgSel.node().clientWidth || 800;
+      const height = svgSel.node().clientHeight || 600;
+      state.svg = svgSel.attr('viewBox', `0 0 ${width} ${height}`);
+      state.g = svgSel.append('g').attr('class', 'zoom-layer');
+      state.g.append('g').attr('class','links');
+      state.g.append('g').attr('class','link-labels');
+      state.g.append('g').attr('class','nodes');
+      state.g.append('g').attr('class','labels');
+
+      state.linksSel = state.g.select('.links').selectAll('line');
+      state.nodesSel = state.g.select('.nodes').selectAll('circle');
+      state.placeholderSel = state.g.select('.nodes').selectAll('rect');
+      state.labelsSel = state.g.select('.labels').selectAll('text');
+      state.linkLabelsSel = state.g.select('.link-labels').selectAll('text');
+
+      state.zoom = d3.zoom().scaleExtent([0.1, 6]).on('zoom', (ev) => {
+        state.zoomTransform = ev.transform;
+        state.g.attr('transform', ev.transform);
+      });
+      svgSel.call(state.zoom);
+
+      if (!state.resizeHooked) {
+        window.addEventListener('resize', onResize);
+        state.resizeHooked = true;
+      }
+      return { width, height };
+    }
+
+    function resolveLinks(nodes, links) {
+      const idToNode = new Map(nodes.map(n => [n.id, n]));
+      const resolved = links.map(l => ({ ...l, source: idToNode.get(l.source) ?? l.source, target: idToNode.get(l.target) ?? l.target }));
+      state.resolvedLinks = resolved;
+      computeDegreeStats(nodes, resolved);
+      return resolved;
+    }
+
+    function drawLinks(resolvedLinks) {
+      state.linksSel = state.g.select('.links').selectAll('line').data(resolvedLinks, d => `${d.source.id ?? d.source}-${d.target.id ?? d.target}`);
+      state.linksSel.exit().remove();
+      state.linksSel = state.linksSel.enter().append('line').attr('class','link').merge(state.linksSel);
+
+      state.linkLabelsSel = state.g.select('.link-labels').selectAll('text').data(resolvedLinks, d => `${d.source.id ?? d.source}-${d.target.id ?? d.target}`);
+      state.linkLabelsSel.exit().remove();
+      state.linkLabelsSel = state.linkLabelsSel.enter().append('text')
+        .attr('class','edge-label')
+        .text(d => {
+          const cand = [d.relation, d.label, d.name, d.type, d.relation_type, d.rel, d.predicate];
+          const t = cand.find(v => v != null && String(v).trim().length);
+          return t != null ? String(t) : '';
+        })
+        .merge(state.linkLabelsSel);
+    }
+
+    function drawNodes(normalNodes, placeholderNodes) {
+      // Normal nodes
+      state.nodesSel = state.g.select('.nodes').selectAll('circle').data(normalNodes, d => d.id);
+      state.nodesSel.exit().remove();
+      const entered = state.nodesSel.enter().append('circle').attr('class','node')
+        .attr('r', d => nodeRadius(d))
+        .attr('fill', d => state.color(d.type))
+        .call(nodeDrag(state.sim ?? d3.forceSimulation()));
+      attachNodeInteractions(entered);
+      state.nodesSel = entered.merge(state.nodesSel);
+
+      // Placeholder nodes
+      state.placeholderSel = state.g.select('.nodes').selectAll('rect').data(placeholderNodes, d => d.id);
+      state.placeholderSel.exit().remove();
+      const enteredPh = state.placeholderSel.enter().append('rect')
+        .attr('class','node')
+        .attr('width', d => Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)) * 2)
+        .attr('height', d => Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)) * 2)
+        .attr('x', function(d){ const s = Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)); return -s; })
+        .attr('y', function(d){ const s = Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)); return -s; })
+        .attr('fill', d => state.color(d.type))
+        .call(nodeDrag(state.sim ?? d3.forceSimulation()))
+        .attr('transform', 'rotate(45)');
+      attachNodeInteractions(enteredPh);
+      state.placeholderSel = enteredPh.merge(state.placeholderSel);
+    }
+
+    function drawLabels(nodes) {
+      state.labelsSel = state.g.select('.labels').selectAll('text').data(nodes, d => d.id);
+      state.labelsSel.exit().remove();
+      state.labelsSel = state.labelsSel.enter().append('text').attr('class','label').text(d => d.name ?? d.id).merge(state.labelsSel);
+    }
+
+    function startSimulation(nodes, resolvedLinks, width, height) {
+      const baseCharge = state.settings.chargeStrength;
+      const chargeForce = d3.forceManyBody().strength(d => baseCharge * (state.typeSettings.get(d.type)?.chargeMul ?? 1));
+      const collideForce = d3.forceCollide().radius(d => nodeRadius(d) + (state.settings.collideRadius ?? 0));
+
+      state.sim = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(resolvedLinks).id(d => d.id).distance(state.settings.linkDistance).strength(state.settings.linkStrength))
+        .force('charge', chargeForce)
+        .force('collide', collideForce)
+        .force('center', d3.forceCenter(width/2, height/2).strength(state.settings.centerStrength))
+        .velocityDecay(state.settings.velocityDecay)
+        .alpha(1)
+        .on('tick', () => {
+          state.linksSel
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+          state.linkLabelsSel
+            .attr('x', d => (d.source.x + d.target.x) / 2)
+            .attr('y', d => (d.source.y + d.target.y) / 2);
+          state.nodesSel
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y);
+          state.labelsSel
+            .attr('x', d => d.x + 8)
+            .attr('y', d => d.y + 4);
+          state.placeholderSel
+            .attr('x', d => d.x - Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)))
+            .attr('y', d => d.y - Math.max(2, (state.typeSettings.get(d.type)?.size ?? 6)))
+            .attr('transform', d => `rotate(45, ${d.x}, ${d.y})`);
+        });
+
+      state.nodesSel.call(nodeDrag(state.sim));
+      if (state.placeholderSel) state.placeholderSel.call(nodeDrag(state.sim));
+    }
+
+    function renderGraph() {
+      const { nodes, links } = state.data;
+      const { width, height } = initSVG();
+      const normalNodes = nodes.filter(n => !n.placeholder);
+      const placeholderNodes = nodes.filter(n => n.placeholder);
+      const resolvedLinks = resolveLinks(nodes, links);
+      drawLinks(resolvedLinks);
+      drawNodes(normalNodes, placeholderNodes);
+      drawLabels(nodes);
+      startSimulation(nodes, resolvedLinks, width, height);
+      applyVisibility();
+      updateLabelVisibility();
+    }
+
+    function onResize() {
+      if (state.sim) updateForces();
+    }
+
+    function updateForces() {
+      if (!state.sim) return;
+      const width = state.svg.node().clientWidth || 800;
+      const height = state.svg.node().clientHeight || 600;
+      state.sim
+        .force('link').distance(state.settings.linkDistance).strength(state.settings.linkStrength);
+      const baseCharge = state.settings.chargeStrength;
+      state.sim.force('charge', d3.forceManyBody().strength(d => baseCharge * (state.typeSettings.get(d.type)?.chargeMul ?? 1)));
+      state.sim.force('collide', d3.forceCollide().radius(d => nodeRadius(d) + (state.settings.collideRadius ?? 0)));
+      state.sim.force('center', d3.forceCenter(width/2, height/2).strength(state.settings.centerStrength));
+      state.sim.velocityDecay(state.settings.velocityDecay);
+      state.sim.alpha(0.6).restart();
+    }
+
+    function applyAutoTune() {
+      if (!state.settings.autoTune) return;
+      const n = state.data.nodes.length;
+      if (n > 2000) {
+        Object.assign(state.settings, { linkDistance: 40, linkStrength: 0.4, chargeStrength: -200, collideRadius: 4, velocityDecay: 0.45 });
+      } else if (n > 1000) {
+        Object.assign(state.settings, { linkDistance: 60, linkStrength: 0.5, chargeStrength: -260, collideRadius: 6, velocityDecay: 0.4 });
+      } else if (n > 500) {
+        Object.assign(state.settings, { linkDistance: 70, linkStrength: 0.55, chargeStrength: -320, collideRadius: 7, velocityDecay: 0.35 });
+      }
+    }
+
+    function syncControlsToSettings() {
+      const s = state.settings;
+      el.linkDistance().value = s.linkDistance; setText(el.valLinkDistance(), s.linkDistance);
+      el.linkStrength().value = s.linkStrength; setText(el.valLinkStrength(), s.linkStrength);
+      el.chargeStrength().value = s.chargeStrength; setText(el.valChargeStrength(), s.chargeStrength);
+      el.collideRadius().value = s.collideRadius; setText(el.valCollideRadius(), s.collideRadius);
+      el.centerStrength().value = s.centerStrength; setText(el.valCenterStrength(), s.centerStrength);
+      el.velocityDecay().value = s.velocityDecay; setText(el.valVelocityDecay(), s.velocityDecay);
+      el.toggleLabels().checked = s.showLabels;
+      el.autoHideLabels().checked = s.autoHideLabels;
+      el.labelSize().value = s.labelSize; setText(el.valLabelSize(), s.labelSize + 'px');
+      el.autoTune().checked = s.autoTune;
+    }
+
+    function hookControlEvents() {
+      el.linkDistance().addEventListener('input', () => { state.settings.linkDistance = +el.linkDistance().value; setText(el.valLinkDistance(), state.settings.linkDistance); updateForces(); });
+      el.linkStrength().addEventListener('input', () => { state.settings.linkStrength = +el.linkStrength().value; setText(el.valLinkStrength(), state.settings.linkStrength); updateForces(); });
+      el.chargeStrength().addEventListener('input', () => { state.settings.chargeStrength = +el.chargeStrength().value; setText(el.valChargeStrength(), state.settings.chargeStrength); updateForces(); });
+      el.collideRadius().addEventListener('input', () => { state.settings.collideRadius = +el.collideRadius().value; setText(el.valCollideRadius(), state.settings.collideRadius); updateForces(); });
+      el.centerStrength().addEventListener('input', () => { state.settings.centerStrength = +el.centerStrength().value; setText(el.valCenterStrength(), state.settings.centerStrength); updateForces(); });
+      el.velocityDecay().addEventListener('input', () => { state.settings.velocityDecay = +el.velocityDecay().value; setText(el.valVelocityDecay(), state.settings.velocityDecay); updateForces(); });
+      el.toggleLabels().addEventListener('change', () => { state.settings.showLabels = el.toggleLabels().checked; updateLabelVisibility(); });
+      el.autoHideLabels().addEventListener('change', () => { state.settings.autoHideLabels = el.autoHideLabels().checked; updateLabelVisibility(); });
+      el.labelSize().addEventListener('input', () => { state.settings.labelSize = +el.labelSize().value; setText(el.valLabelSize(), state.settings.labelSize + 'px'); updateLabelVisibility(); });
+      el.autoTune().addEventListener('change', () => { state.settings.autoTune = el.autoTune().checked; });
+      el.btnRestart().addEventListener('click', () => { if (state.sim) state.sim.alpha(1).restart(); });
+      el.btnCenter().addEventListener('click', () => { if (state.svg) state.svg.transition().duration(500).call(state.zoom.transform, d3.zoomIdentity); });
+      el.btnExpandTypes().addEventListener('click', () => toggleTypesAccordion(true));
+      el.btnCollapseTypes().addEventListener('click', () => toggleTypesAccordion(false));
+      el.retry().addEventListener('click', () => reload());
+      if (el.btnLoadSample()) el.btnLoadSample().addEventListener('click', loadSampleData);
+      if (el.btnCloseError()) el.btnCloseError().addEventListener('click', () => hide(el.errorPanel()));
+      // Toggle left sidebar collapse
+      el.btnToggleLeft().addEventListener('click', () => {
+        document.body.classList.toggle('left-collapsed');
+        // after layout settles, update forces so centering uses new svg size
+        requestAnimationFrame(() => { if (state.sim) updateForces(); });
+      });
+    }
+
+    function toggleTypesAccordion(expand) {
+      // Bootstrap collapse toggling via classes
+      const acc = el.typesAccordion();
+      acc.querySelectorAll('.accordion-collapse').forEach((c) => {
+        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(c, { toggle: false });
+        expand ? bsCollapse.show() : bsCollapse.hide();
+      });
+    }
+
+    // Loading
+    async function fetchGraphJson() {
+      setText(el.statusText(), 'Loading d3_graph.json…');
+      try {
+        return await withTimeout((signal) => fetch('d3_graph.json', { cache: 'no-cache', signal }).then(r => {
+          if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
+          return r.json();
+        }), 15000);
+      } finally {
+        // no-op
+      }
+    }
+
+    function showToast(message, variant = 'info', title = 'Notice') {
+      const toastEl = document.getElementById('app-toast');
+      const body = document.getElementById('toast-body');
+      const tTitle = document.getElementById('toast-title');
+      const sw = document.getElementById('toast-swatch');
+      body.textContent = message;
+      tTitle.textContent = title;
+      const colors = { info: '#6ea8fe', success: '#51cf66', warning: '#ffd43b', danger: '#ff6b6b' };
+      sw.style.background = colors[variant] || colors.info;
+      const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { autohide: true, delay: 6000 });
+      toast.show();
+    }
+
+    function loadSampleData() {
+      try {
+        const raw = document.getElementById('sample-graph').textContent;
+        const data = JSON.parse(raw);
+        const { nodes, links, issues } = validateGraphData(data);
+        state.data = { nodes, links };
+        buildTypesAndSettings();
+        autoTuneIfNeeded();
+        updateStats();
+        buildLegend();
+        buildTypeAccordions();
+        renderGraph();
+        hide(el.errorPanel());
+        if (issues && issues.length) issues.forEach(i => showToast(i, 'warning', 'Data warning'));
+        setText(el.statusText(), 'Ready (Sample)');
+      } catch (e) {
+        setText(el.statusText(), 'Error');
+        showToast('Failed to load sample dataset: ' + (e.message || e), 'danger', 'Error');
+      }
+    }
+
+    function showIssues(issues) {
+      if (!issues || !issues.length) return;
+      // Show as transient toasts instead of a persistent panel
+      issues.forEach(i => showToast(i, 'warning', 'Data warning'));
+    }
+
+    async function reload() {
+      hide(el.errorPanel());
+      try {
+        const raw = await fetchGraphJson();
+        const { nodes, links, issues } = validateGraphData(raw);
+        state.data = { nodes, links };
+        buildTypesAndSettings();
+        autoTuneIfNeeded();
+        updateStats();
+        buildLegend();
+        buildTypeAccordions();
+        renderGraph();
+        showIssues(issues);
+        setText(el.statusText(), 'Ready');
+      } catch (err) {
+        // Fallback to built-in sample on any fetch error to keep the app usable
+        showToast('Failed to load d3_graph.json; loading built-in sample instead.', 'warning', 'Data fall back');
+        loadSampleData();
+      }
+    }
+
+    function initApp() {
+      hookControlEvents();
+      syncControlsToSettings();
+      reload();
+    }
+
+    // Robust init: multiple readiness checks
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      setTimeout(initApp, 0);
+    } else {
+      document.addEventListener('DOMContentLoaded', initApp);
+    }
+  })();
+  </script>
+</body>
+</html>
