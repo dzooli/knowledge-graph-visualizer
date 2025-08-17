@@ -75,7 +75,7 @@ Notes:
 
 * File: `convert_to_d3.js`
 * Function: `window.convertMemoryJsonToD3Graph(memoryJson)`
-  + Input: the parsed `memory.json` object
+  + Input: the exported `memory.json` object
   + Output: `{ nodes: [...], links: [...], metadata: {...} }`
   + The main HTML then runs its own validation/normalization and placeholder insertion before rendering.
 
