@@ -561,6 +561,7 @@
     }
 
     function attachNodeInteractions(selection) {
+      let clickTimeout;
       selection
         .on('mouseover', function (event, d) {
           // bring the node to front visually
@@ -577,7 +578,20 @@
           // Clear edge highlights
           clearHighlights();
         })
+        .on('click', function (event, d) {
+          // Prevent immediate graph reorganization
+          clearTimeout(clickTimeout);
+          clickTimeout = setTimeout(() => {
+            if (!d.pinned) {
+              d.fx = null;
+              d.fy = null;
+            }
+          }, 300); // Delay for 300ms
+        })
         .on('dblclick', function (event, d) {
+          event.preventDefault(); // Prevent zooming
+          event.stopPropagation(); // Stop propagation to zoom handler
+          clearTimeout(clickTimeout); // Clear single-click timeout
           // Toggle pin
           d.pinned = !d.pinned;
           if (d.pinned) {
