@@ -24,8 +24,8 @@ A collapsible left sidebar provides controls for customizing the graph's appeara
 
 ### Serving and Files
 
-* Lightweight Python HTTP server
-* Graph data in a D3.js-compatible JSON file (hardcoded as `d3_graph.json`)
+* Lightweight Python HTTP server (or any static server)
+* The app now fetches `memory.json` and converts it to a D3.js graph client-side via `convert_to_d3.js`
 
 ### Error Handling
 
@@ -52,10 +52,32 @@ A collapsible left sidebar provides controls for customizing the graph's appeara
 
 ## Usage
 
-1. You need to get the knowledge graph memory into a JSON file. Example script ```read_graph.sh``` is compatible with ```@modelcontextprotocol/server-memory``` reference implementation. It calls the MCP thorough stdio to use the __read_graph__ tool.
-2. Then by ```convert_to_d3.py``` you could create the D3.js compatible graph into ```d3_graph.json```. Use ```--no-validate``` to skip node consistency validation.
-3. Finally start the server via ```start.bat``` or with ```python -m http.server -b 127.0.0.1 8080``` and 
-4. Open __http://127.0.0.1:8080/knowledge_graph.html__ in your browser.
+1. Obtain the knowledge graph memory as `memory.json`.
+  + Example: `read_graph.sh` works with the `@modelcontextprotocol/server-memory` reference server and calls the `read_graph` tool via stdio.
+2. Serve the folder with a static server, e.g. on Windows:
+  + Use `start.bat` or
+  + Python: `python -m http.server -b 127.0.0.1 8080`
+3. Open http://127.0.0.1:8080/knowledge_graph.html in your browser.
+4. The page will fetch `memory.json`, convert it on-the-fly, validate, insert placeholders for missing referenced nodes, and render the graph.
+
+Notes:
+* The previous pre-conversion step (`convert_to_d3.py` → `d3_graph.json`) is no longer required for the page to work.
+* The Python script still mirrors the logic and can be used offline or for exporting a static `d3_graph.json` if desired.
+
+### Troubleshooting
+
+* If data fails to load, the app falls back to a built-in sample dataset to remain usable.
+* Ensure `memory.json` sits next to `knowledge_graph.html` when served.
+* `memory.json` format: it should contain `result.content[].text` where `text` is a JSON string with `{ entities: [...], relations: [...] }`.
+* Use a local server to avoid browser CORS/security limitations.
+
+### Client-side converter API (for reference)
+
+* File: `convert_to_d3.js`
+* Function: `window.convertMemoryJsonToD3Graph(memoryJson)`
+  + Input: the parsed `memory.json` object
+  + Output: `{ nodes: [...], links: [...], metadata: {...} }`
+  + The main HTML then runs its own validation/normalization and placeholder insertion before rendering.
 
 ## Contribution
 

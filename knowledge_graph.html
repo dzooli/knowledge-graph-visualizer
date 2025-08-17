@@ -42,9 +42,9 @@
           <div class="card-body">
             <div id="error-message" class="mb-2"></div>
             <ul class="mb-0 small">
-              <li>Ensure d3_graph.json is in the same folder as this HTML file.</li>
+              <li>Ensure memory.json is in the same folder as this HTML file.</li>
               <li>Serve via a local server, e.g. Python: <code>python -m http.server</code>.</li>
-              <li>Validate JSON structure: { nodes: [...], links: [...] }.</li>
+              <li>Validate JSON structure: memory.json should contain result.content[].text with an object having entities[] and relations[].</li>
             </ul>
           </div>
         </div>
@@ -208,6 +208,7 @@
   <!-- Load libraries before app script to ensure globals exist -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="convert_to_d3.js"></script>
 
   <script>
   (function () {
@@ -948,12 +949,16 @@
 
     // Loading
     async function fetchGraphJson() {
-      setText(el.statusText(), 'Loading d3_graph.json…');
+      setText(el.statusText(), 'Loading memory.json…');
       try {
-        return await withTimeout((signal) => fetch('d3_graph.json', { cache: 'no-cache', signal }).then(r => {
+        const rawMem = await withTimeout((signal) => fetch('memory.json', { cache: 'no-cache', signal }).then(r => {
           if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
           return r.json();
-        }), 15000);
+        }), 20000);
+        if (typeof window.convertMemoryJsonToD3Graph !== 'function') {
+          throw new Error('Converter not available');
+        }
+        return window.convertMemoryJsonToD3Graph(rawMem);
       } finally {
         // no-op
       }
@@ -1014,8 +1019,8 @@
         showIssues(issues);
         setText(el.statusText(), 'Ready');
       } catch (err) {
-        // Fallback to built-in sample on any fetch error to keep the app usable
-        showToast('Failed to load d3_graph.json; loading built-in sample instead.', 'warning', 'Data fall back');
+        // Fallback to built-in sample on any fetch/conversion error to keep the app usable
+        showToast('Failed to load/convert memory.json; loading built-in sample instead.', 'warning', 'Data fall back');
         loadSampleData();
       }
     }
